@@ -1,3 +1,24 @@
+[tool.poetry]
+name = "reverb"
+version = "0.0.1a"
+description = "Lavalink wrapper for hikari API."
+authors = ["sarthhh <shiva02939@gmail.com>"]
+license = "MIT License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.12"
+hikari = "^2.0.0.dev116"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.1.0"
+isort = "^5.12.0"
+ruff = "^0.0.243"
+nox = "^2022.11.21"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 120
@@ -21,3 +42,4 @@ force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
 src_paths = ["reverb"]
+
