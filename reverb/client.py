@@ -7,6 +7,7 @@ import attrs
 import hikari
 
 from reverb.gateway import GatewayHandler
+from reverb.rest import RESTClient
 
 
 @attrs.define(kw_only=True, slots=True)
@@ -16,6 +17,8 @@ class LavalinkClient:
     password: str = "youshallnotpass"
     application_id: int
     bot: hikari.UndefinedOr[hikari.GatewayBot]
+    _server_version: str | None = attrs.field(init=False, default=None)
+    _rest: hikari.UndefinedOr[RESTClient] = attrs.field(init=False, default=hikari.UNDEFINED)
     _gateway: hikari.UndefinedOr[GatewayHandler] = attrs.field(init=False, default=hikari.UNDEFINED)
     _client_session: hikari.UndefinedOr[aiohttp.ClientSession] = attrs.field(init=False, default=hikari.UNDEFINED)
 
@@ -28,10 +31,20 @@ class LavalinkClient:
 
     @property
     def gateway(self) -> GatewayHandler:
-        assert isinstance(
-            self._gateway, GatewayHandler
-        ), "you need to login using .start() using before accessing the gateway"
+        assert isinstance(self._gateway, GatewayHandler)
         return self._gateway
+
+    @property
+    def rest(self) -> RESTClient:
+        assert isinstance(
+            self._rest, RESTClient
+        ), "LavalinkClient class shall be initialised using the `build` classmethod,"
+        return self._rest
+
+    @property
+    def server_version(self) -> str:
+        assert isinstance(self._server_version, str)
+        return self._server_version
 
     @classmethod
     async def build(
@@ -56,5 +69,7 @@ class LavalinkClient:
             client_session if isinstance(client_session, aiohttp.ClientSession) else aiohttp.ClientSession()
         )
         inst._gateway = GatewayHandler(client=inst, client_session=inst.client_session)
+        inst._rest = RESTClient(client=inst)
         await inst.gateway.connect()
+        inst._server_version = await inst.rest.get_version()
         return inst

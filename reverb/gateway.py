@@ -11,7 +11,17 @@ import hikari
 import multidict
 
 from reverb.enums import EventType, ExceptionSeverity, OPTypes, TrackEndReason
-from reverb.events import LavalinkReadyEvent, PlayerUpdateEvent, StatsEvent
+from reverb.events import (
+    DiscordWebsocketClosedEvent,
+    LavalinkReadyEvent,
+    PlayerUpdateEvent,
+    StatsEvent,
+    TrackEndEvent,
+    TrackExceptionEvent,
+    TrackStartEvent,
+    TrackStuckEvent,
+    _EventOPEvent,
+)
 from reverb.models import CPU, FrameStats, Memory, PlayerState
 
 if typing.TYPE_CHECKING:
@@ -81,16 +91,33 @@ class _EventOP:
     guild_id: int
     type: EventType
 
+    @classmethod
+    def create(cls, payload: dict[str, typing.Any]) -> typing.Any:
+        ...
+
 
 @attrs.define(kw_only=True, slots=True, frozen=True, repr=True)
 class TrackStartEventOP(_EventOP):
     encoded_track: str
+
+    @classmethod
+    def create(cls, payload: dict[str, typing.Any]) -> TrackStartEventOP:
+        return cls(guild_id=int(payload["guildId"]), type=EventType.TRACK_START, encoded_track=payload["encodedTrack"])
 
 
 @attrs.define(kw_only=True, slots=True, frozen=True, repr=True)
 class TrackEndEventOP(_EventOP):
     encoded_track: str
     reason: TrackEndReason
+
+    @classmethod
+    def create(cls, payload: dict[str, typing.Any]) -> TrackEndEventOP:
+        return cls(
+            guild_id=int(payload["guildId"]),
+            type=EventType.TRACK_END,
+            encoded_track=payload["encodedTrack"],
+            reason=TrackEndReason(payload["reason"]),
+        )
 
 
 @attrs.define(kw_only=True)
@@ -99,10 +126,75 @@ class TrackException:
     cause: str
     severity: ExceptionSeverity
 
+    @classmethod
+    def create(cls, payload: dict[str, typing.Any]) -> TrackException:
+        return cls(
+            message=payload.get("message"), cause=payload["cause"], severity=ExceptionSeverity(payload["severity"])
+        )
+
 
 @attrs.define(kw_only=True, slots=True, frozen=True, repr=True)
 class TrackExceptionEventOP(_EventOP):
     encoded_track: str
+    exception: TrackException
+
+    @classmethod
+    def create(cls, payload: dict[str, typing.Any]) -> TrackExceptionEventOP:
+        return cls(
+            guild_id=payload["guildId"],
+            type=EventType.TRACK_EXCEPTION_EVENT,
+            encoded_track=payload["encodedTrack"],
+            exception=TrackException.create(payload["exception"]),
+        )
+
+
+@attrs.define(kw_only=True, slots=True, frozen=True, repr=True)
+class TrackStuckEventOP(_EventOP):
+    encoded_track: str
+    threshold_ms: int
+
+    @classmethod
+    def create(cls, payload: dict[str, typing.Any]) -> TrackStuckEventOP:
+        return cls(
+            guild_id=payload["guildId"],
+            type=EventType.TRACK_STUCK_EVENT,
+            encoded_track=payload["encodedTrack"],
+            threshold_ms=payload["thresholdMs"],
+        )
+
+
+@attrs.define(kw_only=True, slots=True, frozen=True, repr=True)
+class DiscordWebsocketClosedEventOP(_EventOP):
+    code: int
+    reason: str
+    by_remote: bool
+
+    @classmethod
+    def create(cls, payload: dict[str, typing.Any]) -> DiscordWebsocketClosedEventOP:
+        return cls(
+            guild_id=payload["guildId"],
+            type=EventType.WEBSOCKET_CLOSED_EVENT,
+            code=payload["code"],
+            reason=payload["reason"],
+            by_remote=payload["byRmote"],
+        )
+
+
+TYPE_TO_EVENT_MAP: dict[str, type[_EventOP]] = {
+    "TrackStartEvent": TrackStartEventOP,
+    "TrackExceptionEvent": TrackExceptionEventOP,
+    "TrackStuckEvent": TrackStartEventOP,
+    "TrackEndEvent": TrackEndEventOP,
+    "WebSocketClosedEvent": DiscordWebsocketClosedEventOP,
+}
+
+OP_TO_REVERB_EVENT_MAP: dict[type[_EventOP], type[_EventOPEvent]] = {
+    TrackStartEventOP: TrackStartEvent,
+    TrackExceptionEventOP: TrackExceptionEvent,
+    TrackStuckEventOP: TrackStuckEvent,
+    DiscordWebsocketClosedEventOP: DiscordWebsocketClosedEvent,
+    TrackEndEventOP: TrackEndEvent,
+}
 
 
 @attrs.define(kw_only=True, slots=True)
@@ -127,17 +219,20 @@ class GatewayHandler:
         return self._websocket
 
     async def process_events(self, payload: dict[str, typing.Any]) -> None:
-        op = payload["op"]
+        op = OPTypes(payload["op"])
         logging.debug("Recieved %s event from server", op)
 
         if not isinstance((bot := self.client.bot), hikari.GatewayBot):
             return
-        if op == OPTypes.READY.value:
+        if op is OPTypes.READY:
             bot.dispatch(LavalinkReadyEvent(app=bot, data=ReadyOP.create(payload)))
-        if op == OPTypes.PLAYER_UPDATE.value:
+        elif op is OPTypes.PLAYER_UPDATE:
             bot.dispatch(PlayerUpdateEvent(app=bot, data=PlayerUpdateOP.create(payload)))
-        if op == OPTypes.STATS.value:
+        elif op is OPTypes.STATS:
             bot.dispatch(StatsEvent(app=bot, data=StatsOP.create(payload)))
+        elif op is OPTypes.EVENT:
+            event_op_class = TYPE_TO_EVENT_MAP[payload["event"]]
+            bot.dispatch(OP_TO_REVERB_EVENT_MAP[event_op_class](app=bot, data=event_op_class.create(payload)))
 
     async def _start_listening(self) -> None:
         async for message in self.websocket:

@@ -13,7 +13,7 @@ class EventType(enum.Enum):
     TRACK_END = "TrackEndEvent"
     TRACK_STUCK_EVENT = "TrackStuckEvent"
     TRACK_EXCEPTION_EVENT = "TrackExceptionEvent"
-    WebSOcketClosedEvent = "WebsocketClosedEvent"
+    WEBSOCKET_CLOSED_EVENT = "WebsocketClosedEvent"
 
 
 class ExceptionSeverity(enum.Enum):

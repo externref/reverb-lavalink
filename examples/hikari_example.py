@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import logging
 import os
 
 import hikari
-
 import reverb
 
 TOKEN = os.environ["DEV_TOKEN"]
@@ -13,7 +13,7 @@ PASSWORD = "youshallnotpass"
 BOT_ID = 964195658468835358
 
 bot = hikari.GatewayBot(TOKEN, logs="DEBUG")
-lavalink: reverb.LavalinkClient | None = None
+lavalink: reverb.LavalinkClient
 
 
 @bot.listen()
@@ -26,12 +26,9 @@ async def setup_lavalink(_: hikari.StartingEvent) -> None:
 
 @bot.listen()
 async def lavalink_ready(event: reverb.LavalinkReadyEvent) -> None:
-    print("connected to lavalink!")
-
-
-@bot.listen()
-async def player_update(event: reverb.PlayerUpdateEvent) -> None:
-    print(event.data)
+    logging.info(
+        "connected to lavalink! Lavalink version: %s,  Session ID: %s", lavalink.server_version, event.data.session_id
+    )
 
 
 bot.run()
