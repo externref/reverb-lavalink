@@ -1,3 +1,7 @@
+"""
+A Lavalink library for the discord API wrapper, hikari.
+"""
+
 from __future__ import annotations
 
 from .client import LavalinkClient

@@ -6,6 +6,8 @@ import typing
 import attrs
 import multidict
 
+from reverb.models import LavalinkServerInfo, StatsOP
+
 if typing.TYPE_CHECKING:
     from reverb.client import LavalinkClient
 
@@ -42,3 +44,11 @@ class RESTClient:
     async def get_version(self) -> str:
         data: bytes = await self.request(Route("version", self.client), json=False)
         return data.decode("utf-8")
+
+    async def get_stats(self) -> StatsOP:
+        data: dict[str, typing.Any] = await self.request(Route("stats", self.client))
+        return StatsOP.create(data)
+
+    async def get_info(self) -> LavalinkServerInfo:
+        data: dict[str, typing.Any] = await self.request(Route("info", self.client))
+        return LavalinkServerInfo.create(data)

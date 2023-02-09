@@ -6,7 +6,7 @@ import attrs
 import hikari
 
 if typing.TYPE_CHECKING:
-    from reverb.gateway import (
+    from reverb.models import (
         DiscordWebsocketClosedEventOP,
         PlayerUpdateOP,
         ReadyOP,

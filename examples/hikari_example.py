@@ -4,6 +4,7 @@ import logging
 import os
 
 import hikari
+
 import reverb
 
 TOKEN = os.environ["DEV_TOKEN"]
